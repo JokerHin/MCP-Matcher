@@ -306,8 +306,8 @@ Run the database schema in your Supabase SQL Editor:
 Start the backend:
 
 ```bash
+source venv/Scripts/activate
 uvicorn main:app --reload
-# Runs on http://localhost:8000
 ```
 
 ### 3. Frontend setup
