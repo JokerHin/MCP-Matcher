@@ -33,6 +33,40 @@ function statusDot(status: string) {
   return "bg-neutral-500";
 }
 
+function amountScoreFromVariance(expected?: number | null, variance?: number | null) {
+  if (!expected || expected <= 0 || variance == null || Number.isNaN(variance)) return null;
+  const variancePct = (Math.abs(variance) / expected) * 100;
+  return Math.max(0, 100 - variancePct * 10);
+}
+
+function getGroupDisplayConfidence(group: MatchGroup) {
+  const invoiceBreakdowns = group.invoice_score_breakdowns ?? [];
+  if (invoiceBreakdowns.length === 0) return group.confidence ?? 0;
+
+  const totals = invoiceBreakdowns.reduce(
+    (acc, item) => {
+      const scores = item.score_breakdown;
+      if (!scores) return acc;
+      acc.count += 1;
+      acc.amount += scores.amount_score ?? 0;
+      acc.date += scores.date_score ?? 0;
+      acc.reference += scores.reference_score ?? 0;
+      return acc;
+    },
+    { count: 0, amount: 0, date: 0, reference: 0 },
+  );
+
+  if (totals.count === 0) return group.confidence ?? 0;
+
+  const amountScore =
+    amountScoreFromVariance(group.total_expected_myr, group.total_variance_myr) ??
+    totals.amount / totals.count;
+  const dateScore = totals.date / totals.count;
+  const referenceScore = totals.reference / totals.count;
+
+  return (amountScore * 0.4) + (dateScore * 0.3) + (referenceScore * 0.3);
+}
+
 export default function PendingQueue({
   pending,
   pendingGroups = [],
@@ -198,7 +232,7 @@ export default function PendingQueue({
                 const isActive = activeGroupId === group.id;
                 const isExpanded = expandedGroupIds.has(group.id);
                 const invNames = group.invoices?.map((i) => i.invoice_no).filter(Boolean).join(", ") ?? "Multiple invoices";
-                const conf = group.confidence ?? 0;
+                const conf = getGroupDisplayConfidence(group);
 
                 return (
                   <div key={group.id}>
